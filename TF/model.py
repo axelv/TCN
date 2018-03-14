@@ -21,9 +21,9 @@ def model_fn(features, labels, mode, params):
                                  kernel_constraint= lambda x: tf.nn.l2_normalize(x, axis=0))
             y = tf.slice(y, begin=[0, 0, 0], size=[-1, x.get_shape()[1], output_channels])
             y = activation(y)
-            y = tf.layers.dropout(y, rate=0.3, training=TRAINING)
+            y = tf.layers.dropout(y, rate=0.0, training=TRAINING)
 
-        x_downsampled = tf.layers.conv1d(y, kernel_size=1, filters=n_outputs)
+        x_downsampled = tf.layers.conv1d(x, kernel_size=1, filters=n_outputs)
         y = activation(y + x_downsampled)
 
         return y
@@ -43,7 +43,7 @@ def model_fn(features, labels, mode, params):
             with tf.variable_scope("ResidualBlock_"+str(i)):
 
                 y = ResidualBlock(y,
-                                  kernel_size=2,
+                                  kernel_size=7,
                                   n_inputs=in_channels,
                                   n_outputs=out_channels,
                                   dilation_rate=dilation_rate)
@@ -76,7 +76,7 @@ def model_fn(features, labels, mode, params):
             return tf.estimator.EstimatorSpec(
                 mode, loss=loss, eval_metric_ops=metrics)
 
-        optimizer = tf.train.AdagradOptimizer(learning_rate=0.1)
+        optimizer = tf.train.AdagradOptimizer(learning_rate=0.004)
         train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 
         return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
