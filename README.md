@@ -1,3 +1,8 @@
+# TensorFlow implementation of the TCN network
+The TF Estimator of TCN network is available in the [/TF](TF/) folder
+
+Below the orignal README.md from [Locuslab]https://github.com/locuslab/TCN).
+
 # Sequence Modeling Benchmarks and Temporal Convolutional Networks (TCN)
 
 
