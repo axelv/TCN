@@ -1,30 +1,71 @@
-import tensorflow as tf
+import os
 import numpy as np
+import tensorflow as tf
 
-def train_input_fn(features, labels, batch_size):
-    """An input function for training"""
-    # Convert the inputs to a Dataset.
-    dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
+from TF.utils import get_run_dir
+from TF.model import model_fn
+from TF.adding_problem_data import data_generator
 
-    # Shuffle, repeat, and batch the examples.
-    dataset = dataset.shuffle(1000).repeat().batch(batch_size)
+SEQ_LEN = 200
+TRAIN_SAMPLES = 70000
+TRAIN_BATCH = 200
+EVAL_SAMPLES = 200
+LEARNING_RATE = 4e-3
+DROPOUT = 0.0
+MODEL_PATH = get_run_dir(os.sep + os.path.join('tmp', 'adding_problem'))
 
-    # Build the Iterator, and return the read end of the pipeline.
-    return dataset.make_one_shot_iterator().get_next()
+params = {'num_channels':
+              [2, 27, 27, 27, 27, 27, 27, 27, 1],
+          'feature_columns': [tf.feature_column.numeric_column('channel', shape=(SEQ_LEN,2))],
+          'kernel_size': 6,
+          'seq_length': SEQ_LEN,
+          'learning_rate': LEARNING_RATE,
+          'dropout': DROPOUT}
 
-def data_generator(N, seq_length):
-    """
-    Args:
-        seq_length: Length of the adding problem data
-        N: # of data in the set
-    """
-    X_num = np.random.standard_normal(size=[N, 1, seq_length])
-    X_mask = np.zeros([N, 1, seq_length])
-    Y = np.zeros([N, 1])
-    for i in range(N):
-        positions = np.random.choice(seq_length, size=2, replace=False)
-        X_mask[i, 0, positions[0]] = 1
-        X_mask[i, 0, positions[1]] = 1
-        Y[i,0] = X_num[i, 0, positions[0]] + X_num[i, 0, positions[1]]
-    X = np.concatenate((X_num, X_mask), axis=1)
-    return X, Y
+## Setup Dataset
+
+x_train = dict()
+x_, y_train = data_generator(TRAIN_SAMPLES, SEQ_LEN)
+x_train['channel'] = np.transpose(x_, axes=(0,2,1))
+
+print("Train datashape: ")
+print(x_train['channel'].shape)
+
+train_input_fn = tf.estimator.inputs.numpy_input_fn(x=x_train,
+                                                    y=y_train,
+                                                    batch_size=TRAIN_BATCH,
+                                                    num_epochs=5,
+                                                    shuffle=False,
+                                                    queue_capacity=1000,
+                                                    num_threads=1
+                                                    )
+index = np.random.randint(0, TRAIN_SAMPLES)
+
+x_eval = dict()
+x_, y_eval = data_generator(EVAL_SAMPLES, SEQ_LEN)
+x_eval['channel'] = np.transpose(x_, axes=(0,2,1))
+
+print("Eval datashape: ")
+print(x_eval['channel'].shape)
+
+
+eval_input_fn = tf.estimator.inputs.numpy_input_fn(x=x_eval,
+                                                   y=y_eval,
+                                                   batch_size=EVAL_SAMPLES,
+                                                   num_epochs=1,
+                                                   shuffle=True,
+                                                   queue_capacity=1000,
+                                                   num_threads=1
+                                                   )
+
+# Construct Estimator
+predictor = tf.estimator.Estimator(model_fn=model_fn,
+                                   params=params,
+                                   model_dir=MODEL_PATH)
+
+train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=2000)
+eval_spec = tf.estimator.EvalSpec(input_fn=eval_input_fn, throttle_secs=300)
+
+# Train + Evaluate
+tf.logging.set_verbosity(tf.logging.INFO)
+tf.estimator.train_and_evaluate(predictor, train_spec, eval_spec)
