@@ -17,7 +17,7 @@ LEARNING_RATE = 0.002
 CHANNELS = 10
 DROPOUT = 0.0
 MODEL_PATH = get_run_dir(os.sep + os.path.join('tmp', 'adding_problem'))
-NUM_STEPS = 3000
+MAX_ITER = 4000
 
 num_channels = [2, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, 1]
 
@@ -165,7 +165,7 @@ if __name__ == "__main__":
             eval_summary_writer = tf.summary.FileWriter(os.path.join(MODEL_PATH, "eval"),
                                                         graph=tf.get_default_graph())
 
-            for batch_i in range(NUM_STEPS):
+            for batch_i in range(MAX_ITER):
 
                 x_train, y_train = data_generator(TRAIN_BATCH, SEQ_LEN)
 
@@ -194,7 +194,7 @@ if __name__ == "__main__":
             print("Training Finished")
             x_eval, y_eval = data_generator(TRAIN_BATCH, SEQ_LEN)
             summary, loss = sess.run([summary_op, loss_op], feed_dict={x: x_eval, y: y_eval, training: False})
-            eval_summary_writer.add_summary(summary, NUM_STEPS)
+            eval_summary_writer.add_summary(summary, MAX_ITER)
             print("Final MSE: " + str(loss))
             print("-------------------------------")
 
