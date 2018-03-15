@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-def train_input_fn(features, labels, batch_size):
+def input_fn(features, labels, batch_size):
     """An input function for training"""
     # Convert the inputs to a Dataset.
     dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))
@@ -27,4 +27,5 @@ def data_generator(N, seq_length):
         X_mask[i, 0, positions[1]] = 1
         Y[i,0] = X_num[i, 0, positions[0]] + X_num[i, 0, positions[1]]
     X = np.concatenate((X_num, X_mask), axis=1)
-    return X, Y
+    X = np.transpose(X, axes=(0,2,1))
+    return X.astype(np.float32), Y.astype(np.float32)

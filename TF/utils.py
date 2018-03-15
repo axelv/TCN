@@ -5,7 +5,7 @@ def get_run_dir(model_path):
         last_run_dir = os.listdir(model_path)[-1]
         last_run_id = int(last_run_dir)
 
-    except IndexError:
+    except (IndexError, ValueError):
         last_run_id = -1
 
     except FileNotFoundError:

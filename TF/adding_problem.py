@@ -7,31 +7,31 @@ from TF.model import model_fn
 from TF.adding_problem_data import data_generator
 
 SEQ_LEN = 200
-TRAIN_SAMPLES = 70000
-TRAIN_BATCH = 200
-EVAL_SAMPLES = 200
-LEARNING_RATE = 4e-3
+TRAIN_SAMPLES = 50000
+TRAIN_BATCH = 32
+EVAL_SAMPLES = 1000
+LEARNING_RATE = 2e-3
 DROPOUT = 0.0
 MODEL_PATH = get_run_dir(os.sep + os.path.join('tmp', 'adding_problem'))
 
 params = {'num_channels':
               [2, 27, 27, 27, 27, 27, 27, 27, 1],
-          'feature_columns': [tf.feature_column.numeric_column('channel', shape=(SEQ_LEN,2))],
           'kernel_size': 6,
           'seq_length': SEQ_LEN,
+          'batch_norm': False,
           'learning_rate': LEARNING_RATE,
           'dropout': DROPOUT}
 
 ## Setup Dataset
 
-x_train = dict()
-x_, y_train = data_generator(TRAIN_SAMPLES, SEQ_LEN)
-x_train['channel'] = np.transpose(x_, axes=(0,2,1))
+x_train, y_train = data_generator(TRAIN_SAMPLES, SEQ_LEN)
 
 print("Train datashape: ")
-print(x_train['channel'].shape)
+print(x_train.shape)
+print(y_train.shape)
 
-train_input_fn = tf.estimator.inputs.numpy_input_fn(x=x_train,
+
+train_input_fn = tf.estimator.inputs.numpy_input_fn(x={'x': x_train},
                                                     y=y_train,
                                                     batch_size=TRAIN_BATCH,
                                                     num_epochs=5,
@@ -39,17 +39,14 @@ train_input_fn = tf.estimator.inputs.numpy_input_fn(x=x_train,
                                                     queue_capacity=1000,
                                                     num_threads=1
                                                     )
-index = np.random.randint(0, TRAIN_SAMPLES)
 
-x_eval = dict()
-x_, y_eval = data_generator(EVAL_SAMPLES, SEQ_LEN)
-x_eval['channel'] = np.transpose(x_, axes=(0,2,1))
+x_eval, y_eval = data_generator(EVAL_SAMPLES, SEQ_LEN)
 
 print("Eval datashape: ")
-print(x_eval['channel'].shape)
+print(x_eval.shape)
+print(y_eval.shape)
 
-
-eval_input_fn = tf.estimator.inputs.numpy_input_fn(x=x_eval,
+eval_input_fn = tf.estimator.inputs.numpy_input_fn(x={'x': x_eval},
                                                    y=y_eval,
                                                    batch_size=EVAL_SAMPLES,
                                                    num_epochs=1,
@@ -63,7 +60,7 @@ predictor = tf.estimator.Estimator(model_fn=model_fn,
                                    params=params,
                                    model_dir=MODEL_PATH)
 
-train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=2000)
+train_spec = tf.estimator.TrainSpec(input_fn=train_input_fn, max_steps=4000)
 eval_spec = tf.estimator.EvalSpec(input_fn=eval_input_fn, throttle_secs=300)
 
 # Train + Evaluate
