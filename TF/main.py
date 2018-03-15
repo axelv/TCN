@@ -4,8 +4,8 @@ import tensorflow as tf
 from TF.utils import get_run_dir, data_generator
 
 STDEV = 0.01
-BATCH_NORM = False
-DROPOUT = 0.1
+BATCH_NORM = True
+DROPOUT = 0
 
 
 SEQ_LEN = 200
@@ -13,12 +13,13 @@ KERNEL_SIZE = 6
 TRAIN_SAMPLES = 50000
 TRAIN_BATCH = 100
 EVAL_SAMPLES = 1000
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.002
+CHANNELS = 10
 DROPOUT = 0.0
 MODEL_PATH = get_run_dir(os.sep + os.path.join('tmp', 'adding_problem'))
 NUM_STEPS = 3000
 
-num_channels = [2, 27, 27, 27, 27, 27, 1]
+num_channels = [2, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, 1]
 
 def weightnorm_conv1d(x, kernel_size, num_filters, dilation_rate):
 
@@ -45,16 +46,17 @@ def ResidualBlock(x, training, kernel_size, n_inputs, n_outputs, dilation_rate, 
     for i in range(2):
         with tf.variable_scope('Layer_'+str(i)):
             #Alternative using standar layers
-            # y = tf.pad(y, [[0,0],[(kernel_size-1)*dilation_rate, 0], [0, 0]])
-            # y = tf.layers.conv1d(y,
-            #                      kernel_size=[kernel_size],
-            #                      filters=output_channels, padding="valid",
-            #                      dilation_rate=dilation_rate,
-            #                      kernel_constraint= lambda x: tf.nn.l2_normalize(x, [0, 1]),
-            #                      kernel_initializer=tf.random_normal_initializer(stddev=1),
-            #                      use_bias=False,
-            #                      data_format="channels_last")
-            #
+
+            y = tf.pad(y, [[0,0],[(kernel_size-1)*dilation_rate, 0], [0, 0]])
+            y = tf.layers.conv1d(y,
+                                 kernel_size=[kernel_size],
+                                 filters=output_channels, padding="valid",
+                                 dilation_rate=dilation_rate,
+                                 #kernel_constraint= lambda x: tf.nn.l2_normalize(x, [0, 1]),
+                                 kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
+                                 use_bias=False,
+                                 data_format="channels_last")
+
             # g = tf.get_variable('g',
             #                     shape=[1, 1, output_channels], dtype=tf.float32,
             #                     initializer=tf.random_normal_initializer(stddev=STDEV),
@@ -62,7 +64,7 @@ def ResidualBlock(x, training, kernel_size, n_inputs, n_outputs, dilation_rate, 
             #
             # y = g*y
 
-            y = weightnorm_conv1d(y, kernel_size=kernel_size, num_filters=output_channels, dilation_rate=dilation_rate)
+            #y = weightnorm_conv1d(y, kernel_size=kernel_size, num_filters=output_channels, dilation_rate=dilation_rate)
 
             if BATCH_NORM:
                 y = tf.layers.batch_normalization(y, training=training, scale=False)
@@ -142,7 +144,10 @@ if __name__ == "__main__":
             tf.summary.histogram(var.name, var)
 
         optimizer = tf.train.AdagradOptimizer(learning_rate=LEARNING_RATE)
-        train_op = optimizer.minimize(loss_op)
+
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            train_op = optimizer.minimize(loss_op)
 
         init_global_op = tf.global_variables_initializer()
         init_local_op = tf.local_variables_initializer()

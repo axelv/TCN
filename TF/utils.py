@@ -26,8 +26,9 @@ def data_generator(N, seq_length):
     X_num = np.random.standard_normal(size=[N, 1, seq_length])
     X_mask = np.zeros([N, 1, seq_length])
     Y = np.zeros([N, 1])
+    positions = [20,60]
     for i in range(N):
-        positions = np.random.choice(seq_length, size=2, replace=False)
+        #positions = np.random.choice(seq_length, size=2, replace=False)
         X_mask[i, 0, positions[0]] = 1
         X_mask[i, 0, positions[1]] = 1
         Y[i,0] = X_num[i, 0, positions[0]] + X_num[i, 0, positions[1]]
