@@ -4,6 +4,7 @@ import numpy as np
 
 def model_fn(features, labels, mode, params):
     TRAINING = (mode == tf.estimator.ModeKeys.TRAIN)
+    STDEV = 0.1
 
     print(labels)
 
@@ -21,7 +22,7 @@ def model_fn(features, labels, mode, params):
                                      filters=output_channels, padding="valid",
                                      dilation_rate=dilation_rate,
                                      #kernel_constraint= lambda x: tf.nn.l2_normalize(x, axis=0),
-                                     kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                                     kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
                                      use_bias=False,
                                      data_format="channels_last")
                 if params['batch_norm']:
@@ -33,7 +34,7 @@ def model_fn(features, labels, mode, params):
                                          padding="valid",
                                          kernel_size=1,
                                          filters=n_outputs,
-                                         kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                                         kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
                                          use_bias=False,
                                          data_format="channels_last")
         y = activation(y + x_downsampled)
@@ -67,7 +68,7 @@ def model_fn(features, labels, mode, params):
             y = tf.layers.flatten(y)
             outputs = tf.layers.dense(y,
                                       units=num_channels[-1],
-                                      kernel_initializer=tf.random_normal_initializer(stddev=0.01),
+                                      kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
                                       use_bias=False)
 
         # Compute predictions.
@@ -94,10 +95,15 @@ def model_fn(features, labels, mode, params):
                 mode, loss=loss, eval_metric_ops=metrics)
 
         optimizer = tf.train.AdagradOptimizer(learning_rate=params['learning_rate'])
+
+        grads = tf.gradients(loss, tf.trainable_variables())
+        grads = list(zip(grads, tf.trainable_variables()))
+
         train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 
         # generate summaries
-        for var in tf.trainable_variables():
+        for grad, var in grads:
+            tf.summary.histogram(var.name+'/gradient', grad)
             tf.summary.histogram(var.name, var)
 
         print("* * *  MODEL CONSTRUCTED * * *")

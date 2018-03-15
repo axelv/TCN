@@ -8,9 +8,9 @@ from TF.adding_problem_data import data_generator
 
 SEQ_LEN = 200
 TRAIN_SAMPLES = 50000
-TRAIN_BATCH = 32
+TRAIN_BATCH = 50
 EVAL_SAMPLES = 1000
-LEARNING_RATE = 2e-3
+LEARNING_RATE = 2e-2
 DROPOUT = 0.0
 MODEL_PATH = get_run_dir(os.sep + os.path.join('tmp', 'adding_problem'))
 
