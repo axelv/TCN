@@ -1,4 +1,5 @@
 import os
+import numpy as np
 
 def get_run_dir(model_path):
     try:

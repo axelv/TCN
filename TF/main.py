@@ -3,22 +3,38 @@ import numpy as np
 import tensorflow as tf
 from TF.utils import get_run_dir, data_generator
 
-STDEV = 0.1
-BATCH_NORM = True
-DROPOUT = False
+STDEV = 0.01
+BATCH_NORM = False
+DROPOUT = 0.1
 
 
 SEQ_LEN = 200
 KERNEL_SIZE = 6
 TRAIN_SAMPLES = 50000
-TRAIN_BATCH = 50
+TRAIN_BATCH = 100
 EVAL_SAMPLES = 1000
-LEARNING_RATE = 2e-2
+LEARNING_RATE = 0.005
 DROPOUT = 0.0
 MODEL_PATH = get_run_dir(os.sep + os.path.join('tmp', 'adding_problem'))
 NUM_STEPS = 3000
 
-num_channels = [2, 27, 27, 27, 27, 27, 27, 27, 1]
+num_channels = [2, 27, 27, 27, 27, 27, 1]
+
+def weightnorm_conv1d(x, kernel_size, num_filters, dilation_rate):
+
+    with tf.variable_scope("causal_conv1d"):
+        # data based initialization of parameters
+        x = tf.pad(x, [[0, 0], [(kernel_size - 1) * dilation_rate, 0], [0, 0]])
+        V = tf.get_variable('V', [1, kernel_size, int(x.get_shape()[-1]), num_filters], tf.float32,
+                            tf.random_normal_initializer(), trainable=True)
+
+        V_norm = tf.nn.l2_normalize(V, [0, 1])
+
+        x_expand = tf.expand_dims(x, axis=1)
+        x_expand = tf.nn.atrous_conv2d(x_expand, V_norm, rate=dilation_rate, padding="VALID")
+        g = tf.get_variable('g', shape=[1, 1, num_filters], dtype=tf.float32, initializer=tf.random_normal_initializer(stddev=STDEV), trainable=True)
+        x_out = tf.squeeze(x_expand, axis=[1])
+        return g*x_out
 
 def ResidualBlock(x, training, kernel_size, n_inputs, n_outputs, dilation_rate, activation = tf.nn.relu, dropout=0.0):
 
@@ -28,24 +44,38 @@ def ResidualBlock(x, training, kernel_size, n_inputs, n_outputs, dilation_rate, 
 
     for i in range(2):
         with tf.variable_scope('Layer_'+str(i)):
-            y = tf.pad(y, [[0,0],[(kernel_size-1)*dilation_rate, 0], [0, 0]])
-            y = tf.layers.conv1d(y,
-                                 kernel_size=[kernel_size],
-                                 filters=output_channels, padding="valid",
-                                 dilation_rate=dilation_rate,
-                                 kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
-                                 use_bias=False,
-                                 data_format="channels_last")
+            #Alternative using standar layers
+            # y = tf.pad(y, [[0,0],[(kernel_size-1)*dilation_rate, 0], [0, 0]])
+            # y = tf.layers.conv1d(y,
+            #                      kernel_size=[kernel_size],
+            #                      filters=output_channels, padding="valid",
+            #                      dilation_rate=dilation_rate,
+            #                      kernel_constraint= lambda x: tf.nn.l2_normalize(x, [0, 1]),
+            #                      kernel_initializer=tf.random_normal_initializer(stddev=1),
+            #                      use_bias=False,
+            #                      data_format="channels_last")
+            #
+            # g = tf.get_variable('g',
+            #                     shape=[1, 1, output_channels], dtype=tf.float32,
+            #                     initializer=tf.random_normal_initializer(stddev=STDEV),
+            #                     trainable=True)
+            #
+            # y = g*y
+
+            y = weightnorm_conv1d(y, kernel_size=kernel_size, num_filters=output_channels, dilation_rate=dilation_rate)
+
             if BATCH_NORM:
-                y = tf.layers.batch_normalization(y, training=training)
+                y = tf.layers.batch_normalization(y, training=training, scale=False)
             y = activation(y)
-            y = tf.layers.dropout(y, rate=dropout, training=training)
+
+            if DROPOUT > 0:
+                y = tf.layers.dropout(y, rate=dropout, training=training)
 
     x_downsampled = tf.layers.conv1d(x,
                                      padding="valid",
                                      kernel_size=1,
                                      filters=n_outputs,
-                                     kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
+                                     kernel_initializer=tf.random_normal_initializer(),
                                      use_bias=False,
                                      data_format="channels_last")
     y = activation(y + x_downsampled)
@@ -76,7 +106,7 @@ def model(x, training, num_channels, kernel_size, seq_length):
                                   dropout=DROPOUT)
 
         with tf.variable_scope('OutputLayer'):
-            y = tf.layers.flatten(y)
+            y = tf.squeeze(tf.slice(y, begin=[0, SEQ_LEN-1, 0], size=[-1, 1, -1]), axis=[1])
             y = tf.layers.dense(y,
                                 units=num_channels[-1],
                                 kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
@@ -98,8 +128,10 @@ if __name__ == "__main__":
                        kernel_size=KERNEL_SIZE,
                        seq_length=SEQ_LEN)
 
-        loss_op = tf.losses.mean_squared_error(predictions=y_pred, labels=y)
+        loss_op = tf.reduce_mean(tf.square(y-y_pred))
         tf.summary.scalar("MSE", loss_op)
+        tf.summary.scalar("Variance Pred", tf.reduce_mean(tf.square(y_pred)))
+        tf.summary.scalar("Variance Target", tf.reduce_mean(tf.square(y)))
 
         # Generate summaries of variables and gradients
         grads = tf.gradients(loss_op, tf.trainable_variables())
