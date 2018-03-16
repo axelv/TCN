@@ -34,6 +34,8 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed (default: 1111)')
 args = parser.parse_args()
 
+args.cuda = False
+
 torch.manual_seed(args.seed)
 if torch.cuda.is_available():
     if not args.cuda:
@@ -41,7 +43,7 @@ if torch.cuda.is_available():
 
 input_channels = 2
 n_classes = 1
-batch_size = args.batch_size
+batch_size = 32 #args.batch_size
 seq_length = args.seq_len
 epochs = args.epochs
 
@@ -81,6 +83,8 @@ def train(epoch):
         optimizer.zero_grad()
         output = model(x)
         loss = F.mse_loss(output, y)
+        print("loss "+str(loss.data[0]))
+        print("var y "+str())
         loss.backward()
         if args.clip > 0:
             torch.nn.utils.clip_grad_norm(model.parameters(), args.clip)

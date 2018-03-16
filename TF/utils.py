@@ -23,7 +23,7 @@ def data_generator(N, seq_length):
         seq_length: Length of the adding problem data
         N: # of data in the set
     """
-    X_num = np.random.standard_normal(size=[N, 1, seq_length])
+    X_num = np.random.uniform(low=0,high=1,size=[N, 1, seq_length])
     X_mask = np.zeros([N, 1, seq_length])
     Y = np.zeros([N, 1])
     #positions = [20,60]

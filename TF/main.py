@@ -8,18 +8,18 @@ BATCH_NORM = True
 DROPOUT = 0
 
 
-SEQ_LEN = 200
-KERNEL_SIZE = 6
+SEQ_LEN = 400
+KERNEL_SIZE = 7
 TRAIN_SAMPLES = 50000
-TRAIN_BATCH = 100
+TRAIN_BATCH = 32
 EVAL_SAMPLES = 1000
-LEARNING_RATE = 0.002
-CHANNELS = 10
+LEARNING_RATE = 0.004
+CHANNELS = 30
 DROPOUT = 0.0
 MODEL_PATH = get_run_dir(os.sep + os.path.join('tmp', 'adding_problem'))
-MAX_ITER = 4000
+MAX_ITER = 5000
 
-num_channels = [2, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, 1]
+num_channels = [2, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, CHANNELS, 1]
 
 def weightnorm_conv1d(x, kernel_size, num_filters, dilation_rate):
 
@@ -52,9 +52,9 @@ def ResidualBlock(x, training, kernel_size, n_inputs, n_outputs, dilation_rate, 
                                  kernel_size=[kernel_size],
                                  filters=output_channels, padding="valid",
                                  dilation_rate=dilation_rate,
-                                 #kernel_constraint= lambda x: tf.nn.l2_normalize(x, [0, 1]),
+            #                     #kernel_constraint= lambda x: tf.nn.l2_normalize(x, [0, 1]),
                                  kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
-                                 use_bias=False,
+                                 use_bias=True,
                                  data_format="channels_last")
 
             # g = tf.get_variable('g',
@@ -68,6 +68,7 @@ def ResidualBlock(x, training, kernel_size, n_inputs, n_outputs, dilation_rate, 
 
             if BATCH_NORM:
                 y = tf.layers.batch_normalization(y, training=training, scale=False)
+
             y = activation(y)
 
             if DROPOUT > 0:
@@ -77,8 +78,8 @@ def ResidualBlock(x, training, kernel_size, n_inputs, n_outputs, dilation_rate, 
                                      padding="valid",
                                      kernel_size=1,
                                      filters=n_outputs,
-                                     kernel_initializer=tf.random_normal_initializer(),
-                                     use_bias=False,
+                                     kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
+                                     use_bias=True,
                                      data_format="channels_last")
     y = activation(y + x_downsampled)
 
@@ -97,6 +98,7 @@ def model(x, training, num_channels, kernel_size, seq_length):
             dilation_rate = 2 ** i
             in_channels = num_channels[i]
             out_channels = num_channels[i+1]
+            print(out_channels)
             with tf.variable_scope("ResidualBlock_"+str(i)):
 
                 y = ResidualBlock(y,
@@ -112,7 +114,7 @@ def model(x, training, num_channels, kernel_size, seq_length):
             y = tf.layers.dense(y,
                                 units=num_channels[-1],
                                 kernel_initializer=tf.random_normal_initializer(stddev=STDEV),
-                                use_bias=False)
+                                use_bias=True)
 
         return y
 
