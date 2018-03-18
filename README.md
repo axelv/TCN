@@ -1,7 +1,7 @@
 # TensorFlow implementation of the TCN network
 A TensorFlow implementation of the TCN network is available in the [/TF](TF/) folder. Everything is implemented using low-level TensorFlow code. Instead of using "Weight Normalization", "Batch Normalization" [http://www.jmlr.org/proceedings/papers/v37/ioffe15.html](S Ioffe, C Szegedy) is used.
 
-**TIP** : Be carefull with the initialization of the weights! Increasing the variance of the initializer can result in Nan's easily.
+**TIP** : Be carefull with the initialization of the weights! Increasing the variance of the initializer can result in NAN's easily.
 
 
 ---------------------------
